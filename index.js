@@ -1,84 +1,52 @@
 
-require('dotenv').config()
-
 const express = require('express')
-const { Sequelize, Model, DataTypes } = require('sequelize')
+
+const { PORT, TESTING, SECRET } = require('./util/config')
+const { connectToDatabase } = require('./util/db')
+
+const blogsRouter = require('./controllers/blogs')
+const usersRouter = require('./controllers/users')
+const loginRouter = require('./controllers/login')
+const authorsRouter = require('./controllers/authors')
+const resetRouter = require('./controllers/reset')
+
+const {
+  unknownEndpoint,
+  errorHandler
+} = require('./util/middleware')
 
 const app = express()
+
 app.use(express.json())
 
-const sequelize = new Sequelize(process.env.DATABASE_URL)
-
-class Blog extends Model {}
-
-Blog.init({
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  author: {
-    type: DataTypes.TEXT
-  },
-  url: {
-    type: DataTypes.TEXT,
-    allowNull: false
-  },
-  title: {
-    type: DataTypes.TEXT,
-    allowNull: false
-  },
-  likes: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
-  }
-}, {
-  sequelize,
-  modelName: 'blog',
-  tableName: 'blogs',
-  timestamps: false
+app.get('/', (req, res) => {
+  res.sendStatus(200)
 })
 
-app.get('/api/blogs', async (req, res) => {
-  const blogs = await Blog.findAll()
-  res.json(blogs)
-})
+app.use('/api/blogs', blogsRouter)
+app.use('/api/users', usersRouter)
+app.use('/api/login', loginRouter)
+app.use('/api/authors', authorsRouter)
 
-app.post('/api/blogs', async (req, res) => {
-  try {
-    const blog = await Blog.create(req.body, {
-      fields: ['author', 'url', 'title', 'likes']
-    })
-    res.status(201).json(blog)
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-})
+if (TESTING) {
+  app.use('/api/reset', resetRouter)
+}
 
-app.delete('/api/blogs/:id', async (req, res) => {
-  const blog = await Blog.findByPk(req.params.id)
-
-  if (blog) {
-    await blog.destroy()
-  }
-
-  res.status(204).end()
-})
-
-const PORT = process.env.PORT || 3001
+app.use(unknownEndpoint)
+app.use(errorHandler)
 
 const start = async () => {
-  try {
-    await sequelize.authenticate()
-    console.log('Connected to PostgreSQL')
-
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`)
-    })
-  } catch (error) {
-    console.error('Unable to connect to the database:', error)
-    process.exitCode = 1
+  if (!SECRET) {
+    console.error('SECRET is missing')
+    process.exit(1)
   }
+
+  await connectToDatabase()
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+    console.log(`Testing mode: ${TESTING}`)
+  })
 }
 
 start()
