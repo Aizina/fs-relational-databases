@@ -1,8 +1,14 @@
 
 const jwt = require('jsonwebtoken')
-const { ValidationError, UniqueConstraintError } = require('sequelize')
+
+const {
+  ValidationError,
+  UniqueConstraintError,
+  ForeignKeyConstraintError
+} = require('sequelize')
+
 const { SECRET } = require('./config')
-const { User } = require('../models')
+const { User, Session } = require('../models')
 
 const httpError = (status, message) => {
   const error = new Error(message)
@@ -21,12 +27,33 @@ const asyncHandler = (handler) => {
 const tokenExtractor = asyncHandler(async (req, res, next) => {
   const authorization = req.get('authorization')
 
-  if (!authorization || !authorization.toLowerCase().startsWith('bearer ')) {
+  if (
+    !authorization ||
+    !authorization.toLowerCase().startsWith('bearer ')
+  ) {
     throw httpError(401, 'token missing')
   }
 
-  const token = authorization.substring(7)
-  const decodedToken = jwt.verify(token, SECRET)
+  const token = authorization.substring(7).trim()
+
+  const decodedToken = jwt.verify(token, SECRET, {
+    algorithms: ['HS256']
+  })
+
+  if (!decodedToken.id) {
+    throw httpError(401, 'token invalid')
+  }
+
+  const session = await Session.findOne({
+    where: {
+      token,
+      userId: decodedToken.id
+    }
+  })
+
+  if (!session) {
+    throw httpError(401, 'session expired or invalid')
+  }
 
   const user = await User.findByPk(decodedToken.id)
 
@@ -34,7 +61,13 @@ const tokenExtractor = asyncHandler(async (req, res, next) => {
     throw httpError(401, 'invalid user')
   }
 
+  if (user.disabled) {
+    throw httpError(401, 'user account is disabled')
+  }
+
   req.user = user
+  req.token = token
+  req.session = session
 
   next()
 })
@@ -62,9 +95,16 @@ const errorHandler = (error, req, res, next) => {
     })
   }
 
+  if (error instanceof ForeignKeyConstraintError) {
+    return res.status(400).json({
+      error: 'invalid reference to another record'
+    })
+  }
+
   if (
     error.name === 'JsonWebTokenError' ||
-    error.name === 'TokenExpiredError'
+    error.name === 'TokenExpiredError' ||
+    error.name === 'NotBeforeError'
   ) {
     return res.status(401).json({
       error: 'token invalid or expired'

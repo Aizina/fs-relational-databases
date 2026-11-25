@@ -30,6 +30,26 @@ Blog.init({
       min: 0
     }
   },
+  year: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    validate: {
+      isInt: {
+        msg: 'year must be an integer'
+      },
+      min: {
+        args: [1991],
+        msg: 'year must be at least 1991'
+      },
+      notInFuture(value) {
+        if (value > new Date().getFullYear()) {
+          throw new Error(
+            'year must not be greater than the current year'
+          )
+        }
+      }
+    }
+  },
   userId: {
     type: DataTypes.INTEGER,
     allowNull: true
@@ -39,7 +59,7 @@ Blog.init({
   modelName: 'blog',
   tableName: 'blogs',
   underscored: true,
-  timestamps: false
+  timestamps: true
 })
 
 module.exports = Blog

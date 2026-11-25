@@ -1,0 +1,50 @@
+
+const { DataTypes } = require('sequelize')
+
+module.exports = {
+  up: async ({ context: queryInterface }) => {
+    await queryInterface.sequelize.transaction(async transaction => {
+      await queryInterface.addColumn('users', 'disabled', {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      }, { transaction })
+
+      await queryInterface.createTable('sessions', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true,
+          allowNull: false
+        },
+        user_id: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          references: {
+            model: 'users',
+            key: 'id'
+          },
+          onDelete: 'CASCADE',
+          onUpdate: 'CASCADE'
+        },
+        token: {
+          type: DataTypes.TEXT,
+          allowNull: false,
+          unique: true
+        }
+      }, { transaction })
+    })
+  },
+
+  down: async ({ context: queryInterface }) => {
+    await queryInterface.sequelize.transaction(async transaction => {
+      await queryInterface.dropTable('sessions', { transaction })
+
+      await queryInterface.removeColumn(
+        'users',
+        'disabled',
+        { transaction }
+      )
+    })
+  }
+}

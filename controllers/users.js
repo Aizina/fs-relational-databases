@@ -11,6 +11,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const users = await User.findAll({
     include: {
       model: Blog,
+      as: 'blogs',
       attributes: {
         exclude: ['userId']
       }
@@ -38,13 +39,39 @@ router.get('/:id', asyncHandler(async (req, res) => {
     throw httpError(400, 'invalid user id')
   }
 
-  const user = await User.findByPk(id, {
-    include: {
-      model: Blog,
-      attributes: {
-        exclude: ['userId']
-      }
+  const readFilter = req.query.read
+  const readingWhere = {}
+
+  if (readFilter !== undefined) {
+    if (readFilter !== 'true' && readFilter !== 'false') {
+      throw httpError(400, 'read must be true or false')
     }
+
+    readingWhere.read = readFilter === 'true'
+  }
+
+  const user = await User.findByPk(id, {
+    include: [
+      {
+        model: Blog,
+        as: 'blogs',
+        attributes: {
+          exclude: ['userId']
+        }
+      },
+      {
+        model: Blog,
+        as: 'readings',
+        attributes: {
+          exclude: ['userId', 'createdAt', 'updatedAt']
+        },
+        through: {
+          attributes: ['id', 'read'],
+          where: readingWhere
+        },
+        required: false
+      }
+    ]
   })
 
   if (!user) {

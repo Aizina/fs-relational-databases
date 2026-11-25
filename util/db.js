@@ -1,33 +1,39 @@
 
-const { Sequelize, DataTypes } = require('sequelize')
+const { Sequelize } = require('sequelize')
+const { Umzug, SequelizeStorage } = require('umzug')
 const { DATABASE_URL } = require('./config')
 
 const sequelize = new Sequelize(DATABASE_URL)
 
+const migrator = new Umzug({
+  migrations: {
+    glob: 'migrations/*.js'
+  },
+  storage: new SequelizeStorage({
+    sequelize,
+    tableName: 'migrations'
+  }),
+  context: sequelize.getQueryInterface(),
+  logger: console
+})
+
+const runMigrations = async () => {
+  const migrations = await migrator.up()
+
+  console.log('Migrations up to date', {
+    files: migrations.map(migration => migration.name)
+  })
+}
+
+const rollbackMigration = async () => {
+  await sequelize.authenticate()
+  await migrator.down()
+}
+
 const connectToDatabase = async () => {
   try {
     await sequelize.authenticate()
-
-    const { User, Blog } = require('../models')
-
-    await User.sync()
-    await Blog.sync()
-
-    const queryInterface = sequelize.getQueryInterface()
-    const columns = await queryInterface.describeTable('blogs')
-
-    if (!columns.user_id) {
-      await queryInterface.addColumn('blogs', 'user_id', {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-          model: 'users',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
-      })
-    }
+    await runMigrations()
 
     console.log('Connected to PostgreSQL')
   } catch (error) {
@@ -38,5 +44,6 @@ const connectToDatabase = async () => {
 
 module.exports = {
   sequelize,
-  connectToDatabase
+  connectToDatabase,
+  rollbackMigration
 }

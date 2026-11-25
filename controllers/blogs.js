@@ -59,6 +59,7 @@ router.get('/', asyncHandler(async (req, res) => {
     },
     include: {
       model: User,
+      as: 'user',
       attributes: ['id', 'name', 'username']
     },
     order: [
@@ -71,7 +72,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }))
 
 router.post('/', tokenExtractor, asyncHandler(async (req, res) => {
-  const { author, url, title, likes } = req.body || {}
+  const { author, url, title, likes, year } = req.body || {}
 
   if (
     likes !== undefined &&
@@ -80,11 +81,20 @@ router.post('/', tokenExtractor, asyncHandler(async (req, res) => {
     throw httpError(400, 'likes must be a non-negative integer')
   }
 
+  if (
+    year !== undefined &&
+    year !== null &&
+    !Number.isInteger(year)
+  ) {
+    throw httpError(400, 'year must be an integer')
+  }
+
   const blog = await Blog.create({
     author,
     url,
     title,
     likes,
+    year,
     userId: req.user.id
   })
 

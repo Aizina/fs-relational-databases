@@ -1,13 +1,20 @@
 
 const express = require('express')
 
-const { PORT, TESTING, SECRET } = require('./util/config')
+const {
+  PORT,
+  TESTING,
+  SECRET
+} = require('./util/config')
+
 const { connectToDatabase } = require('./util/db')
 
 const blogsRouter = require('./controllers/blogs')
 const usersRouter = require('./controllers/users')
 const loginRouter = require('./controllers/login')
+const logoutRouter = require('./controllers/logout')
 const authorsRouter = require('./controllers/authors')
+const readinglistsRouter = require('./controllers/readinglists')
 const resetRouter = require('./controllers/reset')
 
 const {
@@ -26,7 +33,9 @@ app.get('/', (req, res) => {
 app.use('/api/blogs', blogsRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/login', loginRouter)
+app.use('/api/logout', logoutRouter)
 app.use('/api/authors', authorsRouter)
+app.use('/api/readinglists', readinglistsRouter)
 
 if (TESTING) {
   app.use('/api/reset', resetRouter)

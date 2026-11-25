@@ -1,8 +1,9 @@
 
 const router = require('express').Router()
 const jwt = require('jsonwebtoken')
+const { randomUUID } = require('node:crypto')
 
-const { User } = require('../models')
+const { User, Session } = require('../models')
 const { SECRET } = require('../util/config')
 
 const {
@@ -27,6 +28,10 @@ router.post('/', asyncHandler(async (req, res) => {
     throw httpError(401, 'invalid username')
   }
 
+  if (user.disabled) {
+    throw httpError(401, 'user account is disabled')
+  }
+
   const userForToken = {
     username: user.username,
     id: user.id
@@ -36,9 +41,15 @@ router.post('/', asyncHandler(async (req, res) => {
     userForToken,
     SECRET,
     {
-      expiresIn: '7d'
+      expiresIn: '7d',
+      jwtid: randomUUID()
     }
   )
+
+  await Session.create({
+    userId: user.id,
+    token
+  })
 
   res.status(200).json({
     token,
